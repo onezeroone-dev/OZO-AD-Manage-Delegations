@@ -1,4 +1,4 @@
-# OZO Manage AD Delegations Installation and Usage
+# OZO AD Manage Delegations Installation and Usage
 ## Description
 Creates AD delegations based on a configuration file. This script can create OU Delegations (`OUDelegations`), apply permissions to GPOs (`GPOPermissions`), grant access to DFSN roots (`DFSNRootPermissions`), grant access to DFSN folders (`DFSNFolderPermissions`) and create delegations to DFSR replication groups (`DFSRPermissions`).
 
@@ -15,12 +15,12 @@ Install-Module DSACL,ImportExcel,OZO,OZOAD
 This script is published to [PowerShell Gallery](https://learn.microsoft.com/en-us/powershell/scripting/gallery/overview?view=powershell-5.1). Ensure your system is configured for this repository then execute the following in an _Administrator_ PowerShell:
 
 ```powershell
-Install-Script ozo-manage-ad-delegations
+Install-Script ozo-ad-manage-delegations
 ```
 
 ## Usage
 ```
-ozo-manage-ad-delegations
+ozo-ad-manage-delegations
     [-Configuration <String>]
     [-OutDir        <String>]
 ```
@@ -28,7 +28,7 @@ ozo-manage-ad-delegations
 ## Parameters
 |Parameter|Description|
 |---------|-----------|
-|`Configuration`|Path to the JSON configuration file. Defaults to `ozo-manage-ad-delegations.json` in the same directory as the script. Please see _Configuration Definition_ (below) for more information.|
+|`Configuration`|Path to the JSON configuration file. Defaults to `ozo-ad-manage-delegations.json` in the same directory as the script. Please see _Configuration Definition_ (below) for more information.|
 |`OutDir`|Directory for the Excel report. Defaults to the current directory.|
 
 ## Capabilities
@@ -70,7 +70,7 @@ The script can grant access to DFSN folders to a user or group.
 The script can create a delegation to a DFSR replication group for a user or group.
 
 ## Configuration Definition
-This script reads its configuration from a JSON [configuration](#parameters) file with the following schema. See [ozo-manage-ad-delegations-EXAMPLE.json](https://github.com/onezeroone-dev/OZO-Manage-AD-Delegations/blob/main/ozo-manage-ad-delegations-EXAMPLE.json) for an example.
+This script reads its configuration from a JSON [configuration](#parameters) file with the following schema. See [ozo-ad-manage-delegations-EXAMPLE.json](https://github.com/onezeroone-dev/ozo-ad-manage-delegations/blob/main/ozo-ad-manage-delegations-EXAMPLE.json) for an example.
 
 ```json
 {
@@ -176,7 +176,7 @@ The script supports applying GPO permissions only to _groups_!
 
 ## Examples
 ```powershell
-ozo-manage-ad-delegations -Configuration (Join-Path -Path $Env:USERPROFILE -ChildPath "Downloads\ozo-manage-ad-delegations.json")
+ozo-ad-manage-delegations -Configuration (Join-Path -Path $Env:USERPROFILE -ChildPath "Downloads\ozo-ad-manage-delegations.json")
 ```
 
 ## Logging

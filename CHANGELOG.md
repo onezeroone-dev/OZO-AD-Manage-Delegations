@@ -1,4 +1,4 @@
-# OZO Manage AD Delegations Change Log
+# OZO AD Manage Delegations Change Log
 
 |Date|Version|Comment|
 |----|-------|-------|

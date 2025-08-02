@@ -7,8 +7,8 @@
     .COMPANYNAME One Zero One
     .COPYRIGHT (c) 2025
     .TAGS 
-    .LICENSEURI https://github.com/onezeroone-dev/OZO-Manage-AD-Delegations/blob/main/LICENSE
-    .PROJECTURI https://github.com/onezeroone-dev/OZO-Manage-AD-Delegations
+    .LICENSEURI https://github.com/onezeroone-dev/OZO-AD-Manage-Delegations/blob/main/LICENSE
+    .PROJECTURI https://github.com/onezeroone-dev/OZO-AD-Manage-Delegations
     .ICONURI 
     .EXTERNALMODULEDEPENDENCIES ActiveDirectory,DFSN,DFSR,DSACL,GroupPolicy,ImportExcel
     .REQUIREDSCRIPTS 
@@ -28,7 +28,7 @@
     .PARAMETER Wipe
     PENDING IMPLEMENTATION wipe all existing delegations before applying the configured delegations.
     .LINK
-    https://github.com/onezeroone-dev/OZO-Manage-AD-Delegations/blob/main/README.md
+    https://github.com/onezeroone-dev/OZO-AD-Manage-Delegations/blob/main/README.md
     .LINK
     https://github.com/SimonWahlin/DSACL/blob/master/docs
     .LINK
@@ -42,8 +42,7 @@
 #>
 
 # PARAMETERS
-[CmdletBinding(SupportsShouldProcess = $true)]
-param (
+[CmdletBinding(SupportsShouldProcess = $true)] Param (
     [Parameter(Mandatory=$false,HelpMessage="Path to the JSON configuration file")][String]$Configuration = (Join-Path -Path $PSScriptRoot -ChildPath "ad-create-delegations.json"),
     [Parameter(Mandatory=$false,HelpMessage="Path for the Excel report")][String]$OutDir = (Get-Location),
     [Parameter(Mandatory=$false,HelpMessage="PENDING IMPLEMENTATION wipe all existing delegations before applying the configured delegations")][Switch]$Wipe
