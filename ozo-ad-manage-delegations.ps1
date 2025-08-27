@@ -192,9 +192,9 @@ Class Main {
     # METHODS: GrantDFSNRootPermissions method
     Hidden [Void] GrantDFSNRootPermissions() {
         # Determine if there are DFSN Root Permissions to process
-        If (($this.Json.DFSNRootPermissions).Count -gt 0) {
+        If (($this.Json.ADDFSNRootPermissions).Count -gt 0) {
             # There are DFSN Root Permissions to process; report
-            $this.ozoLogger.Write("Processing DFSN Permissions.","Information")
+            $this.ozoLogger.Write("Processing DFSN root permissions.","Information")
             # Iterate through the DFSN Root Permissions
             ForEach ($dfsnRootPermission in $this.Json.ADDFSNRootPermissions) {
                 # Report
@@ -210,7 +210,7 @@ Class Main {
             }
         } Else {
             # There are no DFSN Root Permissions to process
-            $this.ozoLogger.Write("No DFSN permissions to set.","Warning")
+            $this.ozoLogger.Write("No DFSN root permissions to set.","Warning")
         }
     }
     # METHODS: GrantDFSNFolderPermissions method
@@ -218,7 +218,7 @@ Class Main {
         # Determine if there are DFSN Folder Permissions to process
         If (($this.Json.ADDFSNFolderPermissions).Count -gt 0) {
             # There are DFSN Folder Permissions to process
-            $this.ozoLogger.Write("Processing DFSN Permissions.","Information")
+            $this.ozoLogger.Write("Processing DFSN folder permissions.","Information")
             # Iterate through the DFSN Folder Permissions
             ForEach ($dfsnFolderPermission in $this.Json.ADDFSNFolderPermissions) {
                 # Report
@@ -234,7 +234,7 @@ Class Main {
             }
         } Else {
             # There are no DFSN Folder Permissions to process
-            $this.ozoLogger.Write("No DFSN permissions to set.","Warning")
+            $this.ozoLogger.Write("No DFSN folder permissions to set.","Warning")
         }
     }
     # METHODS: GrantDFSRPermissions method

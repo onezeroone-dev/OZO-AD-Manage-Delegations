@@ -435,16 +435,16 @@
     ],
     "ADDFSNFolderPermissions":[
         {
-            "Description":"Delegate permission to the Shares/All folder",
-            "DFSNFolders":["\\\\contoso.com\\Shares\\All"],
+            "Description":"Delegate permission to the Shares\\All folder",
+            "DFSNFolders":["\\\\contoso.com\\Shares"],
             "Identities":["All DFS Delegates"]
         }
     ],
     "ADDFSRPermissions":[
         {
-            "Description":"Delegate permission to USVDIRG replication group",
-            "DFSRGroups":["USVDIRG"],
-            "Identities":["SIT_VDI_AD_Change_Control"]
+            "Description":"Delegate permission to ContosoRG replication group",
+            "DFSRGroups":["ContosoRG"],
+            "Identities":["All DFS Delegates"]
         }
     ]
 }
