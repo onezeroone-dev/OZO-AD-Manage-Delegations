@@ -10,7 +10,7 @@ Install-Module DSACL,ImportExcel,OZO,OZOAD,OZOFiles,OZOLogger
 ```
 
 ## Installation
-This script is published to [PowerShell Gallery](https://learn.microsoft.com/en-us/powershell/scripting/gallery/overview?view=powershell-5.1). Ensure your system is configured for this repository then execute the following in an _Administrator_ PowerShell:
+This script is published to Microsoft's [PowerShell Gallery](https://learn.microsoft.com/en-us/powershell/scripting/gallery/overview?view=powershell-5.1). Ensure your system is configured for this repository then execute the following in an _Administrator_ PowerShell:
 
 ```powershell
 Install-Script ozo-ad-manage-delegations
@@ -40,10 +40,10 @@ The following permissions are implemented in the script. See [_Configuration Def
 |`CreateChildGroups`|Delegates create child group objects.|
 |`CreateChildUsers`|Delegates create child user objects.|
 |`CreateOUs`|Delegates create OU.|
-|`DeleteChildComputers`|PENDING IMPLEMENTATION Delegates delete child computer objects.|
-|`DeleteChildContacts`|PENDING IMPLEMENTATION Delegates delete child contact objects.|
-|`DeleteChildGroups`|PENDING IMPLEMENTATION Delegates delete child group objects.|
-|`DeleteChildUser`|PENDING IMPLEMENTATION Delegates delete child user objects.|
+|`DeleteChildComputers`|Delegates delete child computer objects.|
+|`DeleteChildContacts`|Delegates delete child contact objects.|
+|`DeleteChildGroups`|Delegates delete child group objects.|
+|`DeleteChildUser`|Delegates delete child user objects.|
 |`DeleteOUs`|Delegates delete OU.|
 |`DomainJoinComputer`|Delegates create computer objects, Write Name, and Write name.|
 |`EnableDisableComputers`|Delegates enable and disable computer objects.|
@@ -61,7 +61,7 @@ The following permissions are implemented in the script. See [_Configuration Def
 Note: To allow an identity to move computers from one OU to another, delegate `DeleteChildComputers` on the source OU and `CreateChildComputers` on the target OU; and likewise for contacts, groups, and users.
 
 ### GPO Permissions
-The script can apply the Group Policy permissions `GpoRead`, `GpoApply`, `GpoEdit`, and `GpoEditDeleteModifySecurity` for _groups_.
+The script can apply `GpoRead`, `GpoApply`, `GpoEdit`, and `GpoEditDeleteModifySecurity` to _groups_.
 
 ### DFSN Root Permissions
 The script can grant access to a DFSN **root** to a user or group.
@@ -123,11 +123,11 @@ This script reads its configuration from a JSON [configuration](#parameters) fil
 ### Main Configuration
 | Key | Value |Required|
 |-----|-------|--------|
-|`ADOUDelegations`|A list of delegations to create. See _OUDelegations Configuration_, below.|FALSE|
-|`ADGPOPermissions`|A list of GPO permissions to apply. See _GPO Permissions Configuration_, below.|FALSE|
-|`ADDFSNRootPermissions`|A list of DFSN roots to delegate. See _DFSN Root Permissions Configuration_, below.|FALSE|
-|`ADDFSNFolderPermissions`|A list of DFSN folders to delegate. See _DFSN Folder Permissions Configuration_, below.|FALSE|
-|`ADDFSRPermissions`|A list of DFSR permissions to apply. See _DFSR Permissions Configuration_, below.|FALSE|
+|`ADOUDelegations`|A list of delegations to create. See _ADOUDelegations Configuration_, below.|FALSE|
+|`ADGPOPermissions`|A list of GPO permissions to apply. See _ADGPOPermissions Configuration_, below.|FALSE|
+|`ADDFSNRootPermissions`|A list of DFSN roots to delegate. See _ADDFSNRootPermissions Configuration_, below.|FALSE|
+|`ADDFSNFolderPermissions`|A list of DFSN folders to delegate. See _ADDFSNFolderPermissions Configuration_, below.|FALSE|
+|`ADDFSRPermissions`|A list of DFSR permissions to apply. See _ADDFSRPermissions Configuration_, below.|FALSE|
 
 ### ADOUDelegations Configuration
 |Key|Value|Required|
@@ -148,7 +148,6 @@ The script supports applying GPO permissions only to _groups_!
 |`Permissions`|A list of the permissions to apply. Valid permissions are `GpoRead`, `GpoApply`, `GpoEdit`, and `GpoEditDeleteModifySecurity`.|TRUE|
 
 ### ADDFSNRootPermissions Configuration
-
 |Key|Value|Required|
 |---|-----|--------|
 |`Description`|A brief description of the DFSN permission.|TRUE|
@@ -156,7 +155,6 @@ The script supports applying GPO permissions only to _groups_!
 |`Identities`|A list of AD users and group to whom the permissions will be applied.|TRUE|
 
 ### ADDFSNFolderPermissions Configuration
-
 |Key|Value|Required|
 |---|-----|--------|
 |`Description`|A brief description of the DFSN permission.|TRUE|
@@ -164,7 +162,6 @@ The script supports applying GPO permissions only to _groups_!
 |`Identities`|A list of AD users and group to whom the permissions will be applied.|TRUE|
 
 ### ADDFSRPermissions Configuration
-
 |Key|Value|Required|
 |---|-----|--------|
 |`Description`|A brief description of the DFSR permission.|TRUE|
