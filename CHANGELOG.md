@@ -2,4 +2,4 @@
 
 |Date|Version|Comment|
 |----|-------|-------|
-|2025-06-07|0.5.0|Initial release with most permissions implemented.|
+|2025-Aug-26|1.0.0|Initial release with most permissions implemented.|

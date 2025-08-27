@@ -1,5 +1,5 @@
 {
-    "OUDelegations":[
+    "ADOUDelegations":[
         {
             "Description":"Delegate full control of all groups in the Groups OU to the All Groups Delegates group",
             "Identities":["All Groups Delegates"],
@@ -321,7 +321,7 @@
             ]
         }
     ],
-    "GPOPermissions":[
+    "ADGPOPermissions":[
         {
             "Description":"Grant GPO Edit, Delete, and Modify Security on all GPOs to the All GPO Delegates group",
             "GPONames":[
@@ -426,21 +426,21 @@
             "Permissions":["GpoEdit"]
         }
     ],
-    "DFSNRootPermissions":[
+    "ADDFSNRootPermissions":[
         {
             "Description":"Delegate permission to the Shares namespace",
             "DFSNRoots":["\\\\contoso.com\\Shares"],
             "Identities":["All DFS Delegates"]
         }
     ],
-    "DFSNFolderPermissions":[
+    "ADDFSNFolderPermissions":[
         {
             "Description":"Delegate permission to the Shares/All folder",
             "DFSNFolders":["\\\\contoso.com\\Shares\\All"],
             "Identities":["All DFS Delegates"]
         }
     ],
-    "DFSRPermissions":[
+    "ADDFSRPermissions":[
         {
             "Description":"Delegate permission to USVDIRG replication group",
             "DFSRGroups":["USVDIRG"],

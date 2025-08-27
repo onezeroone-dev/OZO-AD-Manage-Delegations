@@ -1,4 +1,4 @@
-#Requires -Modules ActiveDirectory,DFSN,DFSR,DSACL,GroupPolicy,ImportExcel,SH,SHAD
+#Requires -Modules ActiveDirectory,DFSN,DFSR,DSACL,GroupPolicy,ImportExcel,OZO,OZOAD,OZOFiles,OZOLogger
 
 <#PSScriptInfo
     .VERSION 1.0.0
@@ -13,20 +13,18 @@
     .EXTERNALMODULEDEPENDENCIES ActiveDirectory,DFSN,DFSR,DSACL,GroupPolicy,ImportExcel
     .REQUIREDSCRIPTS 
     .EXTERNALSCRIPTDEPENDENCIES 
-    .RELEASENOTES
+    .RELEASENOTES https://github.com/onezeroone-dev/OZO-AD-Manage-Delegations/blob/main/CHANGELOG.md
 #>
 
 <# 
     .SYNOPSIS
     See description.
     .DESCRIPTION 
-    Creates AD delegations based on a configuration file. This script can create OU Delegations (`OUDelegations`), apply permissions to GPOs (`GPOPermissions`), grant access to DFSN roots (`DFSNRootPermissions`), grant access to DFSN folders (`DFSNFolderPermissions`) and create delegations to DFSR replication groups ("DFSRPermissions").
+    Creates AD delegations based on a configuration file. This script can create OU Delegations, apply permissions to GPOs, grant access to DFSN roots, grant access to DFSN folders, and create delegations to DFSR replication groups.
     .PARAMETER Configuration
     Path to the JSON configuration file. Defaults to "ad-create-delegations.json" in the same directory as the script.
     .PARAMETER OutDir
     Path for the Excel report. Defaults to the current directory.
-    .PARAMETER Wipe
-    PENDING IMPLEMENTATION wipe all existing delegations before applying the configured delegations.
     .LINK
     https://github.com/onezeroone-dev/OZO-AD-Manage-Delegations/blob/main/README.md
     .LINK
@@ -44,38 +42,34 @@
 # PARAMETERS
 [CmdletBinding(SupportsShouldProcess = $true)] Param (
     [Parameter(Mandatory=$false,HelpMessage="Path to the JSON configuration file")][String]$Configuration = (Join-Path -Path $PSScriptRoot -ChildPath "ad-create-delegations.json"),
-    [Parameter(Mandatory=$false,HelpMessage="Path for the Excel report")][String]$OutDir = (Get-Location),
-    [Parameter(Mandatory=$false,HelpMessage="PENDING IMPLEMENTATION wipe all existing delegations before applying the configured delegations")][Switch]$Wipe
+    [Parameter(Mandatory=$false,HelpMessage="Path for the Excel report")][String]$OutDir = (Get-Location)
 )
 
 # CLASSES
-Class ACDMain {
+Class Main {
     # PROPERTIES: Booleans, Hashtables, Strings
     [Boolean]   $Validates = $true
-    [Boolean]   $Wipe      = $false
     [String]    $excelPath = $null
     [String]    $jsonPath  = $null
     [String]    $outDir    = $null
     # PROPERTIES: PSCustomObjects
     [PSCustomObject] $Json     = $null
-    [PSCustomObject] $shLogger = $null
+    [PSCustomObject] $ozoLogger = $null
     # PROPERTIES: Lists
     [System.Collections.Generic.List[PSCustomObject]] $ouDelegations         = @()
     [System.Collections.Generic.List[PSCustomObject]] $gpoPermissions        = @()
     [System.Collections.Generic.List[PSCustomObject]] $dfsnRootPermissions   = @()
     [System.Collections.Generic.List[PSCustomObject]] $dfsnFolderPermissions = @()
     [System.Collections.Generic.List[PSCustomObject]] $dfsrPermissions       = @()
-    # METHODS
-    # Constructor method
-    ACDMain($Configuration,$OutDir,$Wipe) {
+    # METHODS: Constructor method
+    Main($Configuration,$OutDir) {
         # Set properties
         $this.jsonPath = $Configuration
         $this.outDir   = $OutDir
-        $this.Wipe     = $Wipe
-        # Create a shLogger object
-        $this.shLogger = (New-SHLogger)
+        # Create a ozoLogger object
+        $this.ozoLogger = (New-OZOLogger)
         # Declare ourselves to the world
-        $this.shLogger.Log("Starting process.","Information")
+        $this.ozoLogger.Write("Starting process.","Information")
         # And the results of ValidateConfiguration and ValidateEnvironment to set validates
         If (($this.ValidateConfiguration() -And $this.ValidateEnvironment()) -eq $true) {
             # Configuration and environment validate; call the permissions methods
@@ -89,9 +83,9 @@ Class ACDMain {
         }
         # Report
         $this.Report()
-        $this.shLogger.Log("Process complete.","Information")
+        $this.ozoLogger.Write("Process complete.","Information")
     }
-    # Configuration validation method
+    # METHODS: Configuration validation method
     Hidden [Boolean] ValidateConfiguration() {
         # control variable
         [Boolean]$Return = $true
@@ -100,134 +94,171 @@ Class ACDMain {
             Test-Path -Path $this.jsonPath -ErrorAction Stop
             # Success; attempt to read the JSON
             Try {
-                $this.json = Get-Content $this.jsonPath -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+                $this.Json = Get-Content $this.jsonPath -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
                 # Success (able to read JSON)
-                $this.shLogger.Log("Configuration validates.","Information")
+                $this.ozoLogger.Write("Configuration validates.","Information")
             } Catch {
                 # Failure (unable to read JSON)
-                $this.shLogger.Log(("Invalid JSON in " + $this.jsonPath + "."),"Error")
+                $this.ozoLogger.Write(("Invalid JSON in " + $this.jsonPath + "."),"Error")
                 $Return = $false
             }
         } Catch {
             # JSON path is not valid
-            $this.shLogger.Log(("Could not read configuration file " + $this.jsonPath + "."),"Error")
+            $this.ozoLogger.Write(("Could not read configuration file " + $this.jsonPath + "."),"Error")
             $Return = $false
         }
         # Return
         return $Return
     }
-    # Environment validation method
+    # METHODS: Environment validation method
     Hidden [Boolean] ValidateEnvironment() {
         # Control variable
         [Boolean] $Return = $true
-        # Detemine if session is not user-interactive
-        If ([Environment]::UserInteractive -eq $false) {
-            $this.shLogger.Log("Please run this script in an interactive session.","Error")
-            $Return = $false
-        }
         # Determine if outDir is writable
-        If ((Test-SHPathWritable -Path $this.outDir) -eq $true) {
+        If ((Test-OZOPath -Path $this.outDir -Writable) -eq $true) {
             # outDir is writable
-            $this.excelPath = (Join-Path -Path $this.outDir -ChildPath ((Get-SH8601Date -Time) + "-ad-create-delegations-report.xlsx"))
-            $this.shLogger.Log(("Using " + $this.excelPath + " for the Excel report"),"Information")
+            $this.excelPath = (Join-Path -Path $this.outDir -ChildPath ((Get-OZO8601Date -Time) + "-ad-create-delegations-report.xlsx"))
+            $this.ozoLogger.Write(("Using " + $this.excelPath + " for the Excel report"),"Information")
         } Else {
             # outDir is not writable; determine if current location is writable
-            $this.shLogger.Log("Provided output directory is not writable.","Warning")
+            $this.ozoLogger.Write("Provided output directory is not writable.","Warning")
             If ((Test-SHPathWritable -Path (Get-Location)) -eq $true) {
                 # current directory is writable
                 $this.excelPath = (Join-Path -Path (Get-Location) -ChildPath ((Get-SH8601Date -Time) + "-ad-create-delegations-report.xlsx"))
-                $this.shLogger.Log(("Using " + $this.excelPath + " for the Excel report"),"Information")
+                $this.ozoLogger.Write(("Using " + $this.excelPath + " for the Excel report"),"Information")
             } Else {
                 # current directory is not writable
-                $this.shLogger.Log("Current directory is not writable; cannot proceed.","Error")
+                $this.ozoLogger.Write("Current directory is not writable; cannot proceed.","Error")
                 $return = $false
             }
         }
         # Return
         return $Return
     }
-    # CreateDelegations method
+    # METHODS: CreateDelegations method
     Hidden [Void] CreateOUDelegations() {
-        If (($this.json.OUDelegations).Count -gt 0) {
-            $this.shLogger.Log("Processing Delegations.","Information")
-            ForEach ($delegation in $this.json.OUDelegations) {
-                $this.shLogger.Log(("Processing " + $delegation.Description + "."),"Information")
+        # Determine if there are OU Delegations to process
+        If (($this.Json.ADOUDelegations).Count -gt 0) {
+            # There are OU Delegations to process; report
+            $this.ozoLogger.Write("Processing Delegations.","Information")
+            # Iterate through the OU Delegations
+            ForEach ($delegation in $this.Json.ADOUDelegations) {
+                # Report
+                $this.ozoLogger.Write(("Processing " + $delegation.Description + "."),"Information")
+                # Iterate through the OUs
                 ForEach ($ouDN in $delegation.OUs) {
+                    # Iterate through the Identities
                     ForEach ($identity in $delegation.Identities) {
+                        # Iterate through the Permissions
                         ForEach ($permission in $delegation.Permissions) {
-                            $this.ouDelegations.Add(([ACDOUDelegation]::new($ouDN,$this.json.DisabledComputersOUDN,$this.json.DisabledUsersOUDN,$identity,$permission)))
+                            # Create an OUDelegation object for this Delegation's OU + Identity + Permission
+                            $this.ouDelegations.Add(([OUDelegation]::new($ouDN,$identity,$permission)))
                         }
                     }
                 }
             }
         } Else {
-            $this.shLogger.Log("No delegations to process.","Warning")
+            # There are no OU Delegations to process
+            $this.ozoLogger.Write("No delegations to process.","Warning")
         }
     }
-    # SetGPOPermissions method
+    # METHODS: SetGPOPermissions method
     Hidden [Void] SetGPOPermissions() {
-        If (($this.json.GPOPermissions).Count -gt 0) {
-            $this.shLogger.Log("Processing GPO Permissions.","Information")
-            ForEach ($gpoPermission in $this.json.GPOPermissions) {
-                $this.shLogger.Log(("Processing " + $gpoPermission.Description + "."),"Information")
+        # Determine if there are GPO Permissions to process
+        If (($this.Json.ADGPOPermissions).Count -gt 0) {
+            # There are GPO Permissiont to process; report
+            $this.ozoLogger.Write("Processing GPO Permissions.","Information")
+            # Iterate through the Permissions
+            ForEach ($gpoPermission in $this.Json.ADGPOPermissions) {
+                # Report
+                $this.ozoLogger.Write(("Processing " + $gpoPermission.Description + "."),"Information")
+                # Iterate through the GPO Names
                 ForEach ($gpoName in $gpoPermission.GPONames) {
+                    # Iterate through the Group Names
                     ForEach ($group in $gpoPermission.GroupNames) {
+                        # Iterate through the Permissions
                         ForEach ($permission in $gpoPermission.Permissions) {
-                            $this.gpoPermissions.Add(([ACDGPOPermissions]::new($gpoName,$group,$permission)))
+                            # Create a GPOPermissions object for this GPO Name + Group Name + Permission
+                            $this.gpoPermissions.Add(([GPOPermissions]::new($gpoName,$group,$permission)))
                         }
                     }
                 }
             }
         } Else {
-            $this.shLogger.Log("No GPO permissions to process.","Warning")
+            # There are no GPO Permissiosn to process
+            $this.ozoLogger.Write("No GPO permissions to process.","Warning")
         }
     }
-    # GrantDFSNRootPermissions method
+    # METHODS: GrantDFSNRootPermissions method
     Hidden [Void] GrantDFSNRootPermissions() {
-        If (($this.json.DFSNRootPermissions).Count -gt 0) {
-            $this.shLogger.Log("Processing DFSN Permissions.","Information")
-            ForEach ($dfsnRootPermission in $this.json.DFSNRootPermissions) {
-                $this.shLogger.Log(("Processing " + $dfsnRootPermission.Description + "."),"Information")
+        # Determine if there are DFSN Root Permissions to process
+        If (($this.Json.DFSNRootPermissions).Count -gt 0) {
+            # There are DFSN Root Permissions to process; report
+            $this.ozoLogger.Write("Processing DFSN Permissions.","Information")
+            # Iterate through the DFSN Root Permissions
+            ForEach ($dfsnRootPermission in $this.Json.ADDFSNRootPermissions) {
+                # Report
+                $this.ozoLogger.Write(("Processing " + $dfsnRootPermission.Description + "."),"Information")
+                # Iterate through the Roots
                 ForEach ($dfsnRoot in $dfsnRootPermission.DFSNRoots) {
+                    # Iterate through the Identities
                     ForEach ($identity in $dfsnRootPermission.Identities) {
-                        $this.dfsnRootPermissions.Add(([ACDDFSNRootPermissions]::new($dfsnRoot,$identity)))
+                        # Create a DFSNRootPermissions object for this Root + Identity
+                        $this.dfsnRootPermissions.Add(([DFSNRootPermissions]::new($dfsnRoot,$identity)))
                     }
                 }
             }
         } Else {
-            $this.shLogger.Log("No DFSN permissions to set.","Warning")
+            # There are no DFSN Root Permissions to process
+            $this.ozoLogger.Write("No DFSN permissions to set.","Warning")
         }
     }
-    # GrantDFSNFolderPermissions method
+    # METHODS: GrantDFSNFolderPermissions method
     Hidden [Void] GrantDFSNFolderPermissions() {
-        If (($this.json.DFSNFolderPermissions).Count -gt 0) {
-            $this.shLogger.Log("Processing DFSN Permissions.","Information")
-            ForEach ($dfsnFolderPermission in $this.json.DFSNFolderPermissions) {
-                $this.shLogger.Log(("Processing " + $dfsnFolderPermission.Description + "."),"Information")
+        # Determine if there are DFSN Folder Permissions to process
+        If (($this.Json.ADDFSNFolderPermissions).Count -gt 0) {
+            # There are DFSN Folder Permissions to process
+            $this.ozoLogger.Write("Processing DFSN Permissions.","Information")
+            # Iterate through the DFSN Folder Permissions
+            ForEach ($dfsnFolderPermission in $this.Json.ADDFSNFolderPermissions) {
+                # Report
+                $this.ozoLogger.Write(("Processing " + $dfsnFolderPermission.Description + "."),"Information")
+                # Iterate through the Folders
                 ForEach ($dfsnFolder in $dfsnFolderPermission.DFSNFolders) {
+                    # Iterate through the Identities
                     ForEach ($identity in $dfsnFolderPermission.Identities) {
-                        $this.dfsnFolderPermissions.Add(([ACDDFSNFolderPermissions]::new($dfsnFolder,$identity)))
+                        # Create a DFSNFolderPermissions object for this Folder + Identity
+                        $this.dfsnFolderPermissions.Add(([DFSNFolderPermissions]::new($dfsnFolder,$identity)))
                     }
                 }
             }
         } Else {
-            $this.shLogger.Log("No DFSN permissions to set.","Warning")
+            # There are no DFSN Folder Permissions to process
+            $this.ozoLogger.Write("No DFSN permissions to set.","Warning")
         }
     }
-    # GrantDFSRPermissions method
+    # METHODS: GrantDFSRPermissions method
     Hidden [Void] GrantDFSRPermissions() {
-        If (($this.json.DFSRPermissions).Count -gt 0) {
-            $this.shLogger.Log("Processing DFSR Permissions.","Information")
-            ForEach ($dfsrPermission in $this.json.DFSRPermissions) {
-                $this.shLogger.Log(("Processing " + $dfsrPermission.Description + "."),"Information")
+        # Determine if there are DFSR Permissions to process
+        If (($this.Json.ADDFSRPermissions).Count -gt 0) {
+            # There are DFSR Permissions to process; report
+            $this.ozoLogger.Write("Processing DFSR Permissions.","Information")
+            # Iterate through the DFSR Permissions
+            ForEach ($dfsrPermission in $this.Json.ADDFSRPermissions) {
+                # Report
+                $this.ozoLogger.Write(("Processing " + $dfsrPermission.Description + "."),"Information")
+                # Iterate through the Groups
                 ForEach ($dfsrGroup in $dfsrPermission.DFSRGroups) {
+                    # Iterate through the Identities
                     ForEach ($identity in $dfsrPermission.Identities) {
-                        $this.dfsrPermissions.Add(([ACDDFSRPermissions]::new($dfsrGroup,$identity)))
+                        # Create a DFSRPermissions object for this Group + Identity
+                        $this.dfsrPermissions.Add(([DFSRPermissions]::new($dfsrGroup,$identity)))
                     }
                 }
             }
         } Else {
-            $this.shLogger.Log("No DFSR permissions to set.","Warning")
+            # There are no DFSR Permissiosn to process
+            $this.ozoLogger.Write("No DFSR permissions to set.","Warning")
         }
     }
     # Report method
@@ -252,19 +283,19 @@ Class ACDMain {
                 Try {
                     Test-Path -Path $this.excelPath -ErrorAction Stop
                     # Success
-                    $this.shLogger.Log(("For additional information, please see " + $this.excelPath + "."),"Information")
+                    $this.ozoLogger.Write(("For additional information, please see " + $this.excelPath + "."),"Information")
                 } Catch {
-                    $this.shLogger.Log("No Excel report generated.","Warning")
+                    $this.ozoLogger.Write("No Excel report generated.","Warning")
                 }
             }
         } Else {
             # No objects were processed
-            $this.shLogger.Log("No objects were processed.","Warning")
+            $this.ozoLogger.Write("No objects were processed.","Warning")
         }
     }
 }
 
-Class ACDOUDelegation {
+Class OUDelegation {
     # PROPERTIES: Booleans, Hashtables, Strings
     [Boolean]   $Success     = $false
     [Boolean]   $Validates   = $false
@@ -284,9 +315,12 @@ Class ACDOUDelegation {
         CreateChildContacts = "Delegates create child contacts objects"
         CreateChildGroups = "Delegates create child groups objects"
         CreateChildUsers = "Delegates create child user objects"
-        CreateDeleteComputers = "Delegates create computer and delete computer"
-        CreateDeleteOUs = "Delegates create OU and delete OU"
-        CreateDeleteUsers = "Delegates create user and delete user"
+        CreateOUs = "Delegates create OU"
+        DeleteChildComputers = "Delegates delete child computer objects"
+        DeleteChildContacts = "Delegates delete child contacts objects"
+        DeleteChildGroups = "Delegates delete child groups objects"
+        DeleteChildUsers = "Delegates delete child user objects"
+        DeleteOUs = "Delegates delete OU"
         DomainJoinComputer = "Delegates create computer objects, Write Name, and Write name"
         DomainLeaveComputer = "Delegates delete computer objects, Write Name, and Write name"
         EnableDisableComputers = "Delegates enable and disable computer objects"
@@ -295,56 +329,52 @@ Class ACDOUDelegation {
         FullControlContacts = "Delegates full control to contacts objects"
         FullControlGroups = "Delegates full control to group objects"
         FullControlUsers = "Delegates full control to user objects"
+        FullControlOUs = "Delegates full control for organizational unit objects"
         LinkGPO = "Delegates link GPO"
         ModifyGroupMembership = "Delegates modify group membership"
-        MoveUsersToDisabledUsersOU = "Delegates moving a disabled user to the DisabledUsers OU"
-        MoveComputersToDisabledComputersOU = "Delegates moving a disabled computer to the DisabledComputers OU"
         ResetUserPasswords = "Delegates reset password"
         ReadBitLockerRecovery = "Delegates read to the BitLocker Recovery information"
     }
     # PROPERTIES: Lists
     [System.Collections.Generic.List[String]] $Messages = @()
-    # METHODS
-    # Constructor method
-    ACDOUDelegation($ouDN,$dcOuDN,$duOuDN,$Identity,$Permission) {
+    # METHODS: Constructor method
+    OUDelegation($ouDN,$Identity,$Permission) {
         # Set properties
         $this.ouDN        = $ouDN
-        $this.dcOuDN      = $dcOuDN
-        $this.duOuDN      = $duOuDN
         $this.Identity    = $Identity
         $this.Permission  = $Permission
         $this.Description = ($this.Permission + " for " + $this.Identity + " on " + $this.ouDN)
         # Create a guid map and extended rights map
-        $this.guidMap = (New-SHADGuidMap)
-        $this.erMap   = (New-SHADExtendedRightMap)
+        $this.guidMap = (New-OZOADGuidMap)
+        $this.erMap   = (New-OZOADExtendedRightsMap)
         # Determine if delegation validates
         If ($this.ValidateDelegation() -eq $true) {
             # Delegation validated
             $this.Validates = $true
             # Switch on permission
             Switch ($this.Permission) {
-                "CreateChildComputers"               { $this.Success = $this.CreateChildComputers()               }
-                "CreateChildContacts"                { $this.Success = $this.CreateChildContacts()                }
-                "CreateChildGroups"                  { $this.Success = $this.CreateChildGroups()                  }
-                "CreateChildUsers"                   { $this.Success = $this.CreateChildUsers()                   }
-                "CreateDeleteComputers"              { $this.Success = $this.CreateDeleteComputers()              }
-                "CreateDeleteOUs"                    { $this.Success = $this.CreateDeleteOUs()                    }
-                "CreateDeleteUsers"                  { $this.Success = $this.CreateDeleteUsers()                  }
-                "DomainJoinComputer"                 { $this.Success = $this.DomainJoinComputer()                 }
-                "DomainLeaveComputer"                { $this.Success = $this.DomainLeaveComputer()                }
-                "EnableDisableComputers"             { $this.Success = $this.EnableDisableComputers()             }
-                "EnableDisableUsers"                 { $this.Success = $this.EnableDisableUsers()                 }
-                "FullControlComputers"               { $this.Success = $this.FullControlComputers()               }
-                "FullControlContacts"                { $this.Success = $this.FullControlContacts()                }
-                "FullControlGroups"                  { $this.Success = $this.FullControlGroups()                  }
-                "FullControlUsers"                   { $this.Success = $this.FullControlUsers()                   }
-                "LinkGPO"                            { $this.Success = $this.LinkGPO()                            }
-                "ModifyGroupMembership"              { $this.Success = $this.ModifyGroupMembership()              }
-                "MoveComputerObject"                 { $this.Success = $this.MoveComputerObject()                 }
-                "MoveUsersToDisabledUsersOU"         { $this.Success = $this.MoveUsersToDisabledUsersOU()         }
-                "MoveComputersToDisabledComputersOU" { $this.Success = $this.MoveComputersToDisabledComputersOU() }
-                "ReadBitLockerRecovery"              { $this.Success = $this.ReadBitLockerRecovery()              }
-                "ResetUserPasswords"                 { $this.Success = $this.ResetUserPasswords()                 }
+                "CreateChildComputers"   { $this.Success = $this.CreateChildComputers()   }
+                "CreateChildContacts"    { $this.Success = $this.CreateChildContacts()    }
+                "CreateChildGroups"      { $this.Success = $this.CreateChildGroups()      }
+                "CreateChildUsers"       { $this.Success = $this.CreateChildUsers()       }
+                "CreateOUs"              { $this.Success = $this.CreateOUs()              }
+                "DeleteChildComputers"   { $this.Success = $this.DeleteChildComputers()   }
+                "DeleteChildContacts"    { $this.Success = $this.DeleteChildContacts()    }
+                "DeleteChildGroups"      { $this.Success = $this.DeleteChildGroups()      }
+                "DeleteChildUsers"       { $this.Success = $this.DeleteChildUsers()       }
+                "DeleteOUs"              { $this.Success = $this.DeleteOUs()              }
+                "DomainJoinComputer"     { $this.Success = $this.DomainJoinComputer()     }
+                "EnableDisableComputers" { $this.Success = $this.EnableDisableComputers() }
+                "EnableDisableUsers"     { $this.Success = $this.EnableDisableUsers()     }
+                "FullControlComputers"   { $this.Success = $this.FullControlComputers()   }
+                "FullControlContacts"    { $this.Success = $this.FullControlContacts()    }
+                "FullControlGroups"      { $this.Success = $this.FullControlGroups()      }
+                "FullControlUsers"       { $this.Success = $this.FullControlUsers()       }
+                "FullControlOUs"         { $this.Success = $this.FullControlOUs()         }
+                "LinkGPO"                { $this.Success = $this.LinkGPO()                }
+                "ModifyGroupMembership"  { $this.Success = $this.ModifyGroupMembership()  }
+                "ReadBitLockerRecovery"  { $this.Success = $this.ReadBitLockerRecovery()  }
+                "ResetUserPasswords"     { $this.Success = $this.ResetUserPasswords()     }
                 default {
                     $this.Messages.Add(("No method found that matches " + $this.permission))
                     $this.Success = $false
@@ -356,7 +386,7 @@ Class ACDOUDelegation {
             $this.Validates = $false
         }
     }
-    # ValidateDelegation method
+    # METHODS: ValidateDelegation method
     Hidden [Boolean] ValidateDelegation() {
         # Control variable
         [Boolean] $Return = $true
@@ -407,7 +437,7 @@ Class ACDOUDelegation {
         # Return
         return $Return
     }
-    # CreateChildUsers method
+    # METHODS: CreateChildUsers method
     Hidden [Boolean] CreateChildComputers() {
         # Control variable
         [Boolean] $Return = $true
@@ -423,7 +453,7 @@ Class ACDOUDelegation {
         # Return
         return $Return
     }
-    # CreateChildContacts method
+    # METHODS: CreateChildContacts method
     Hidden [Boolean] CreateChildContacts() {
         # Control variable
         [Boolean] $Return = $true
@@ -439,7 +469,7 @@ Class ACDOUDelegation {
         # Return
         return $Return
     }
-    # CreateChildGroups method
+    # METHODS: CreateChildGroups method
     Hidden [Boolean] CreateChildGroups() {
         # Control variable
         [Boolean] $Return = $true
@@ -455,7 +485,7 @@ Class ACDOUDelegation {
         # Return
         return $Return
     }
-    # CreateChildUsers method
+    # METHODS: CreateChildUsers method
     Hidden [Boolean] CreateChildUsers() {
         # Control variable
         [Boolean] $Return = $true
@@ -471,33 +501,8 @@ Class ACDOUDelegation {
         # Return
         return $Return
     }
-    # CreateDeleteComputers method
-    Hidden [Boolean] CreateDeleteComputers() {
-        # Control variable
-        [Boolean] $Return = $true
-        # Try to delegate create computer
-        Try {
-            Add-DSACLCreateChild -TargetDN $this.ouDN -DelegateDN $this.identityDN -ObjectTypeName Computer -AccessType Allow -ErrorAction Stop
-            # Success
-        } Catch {
-            # Failure
-            $this.Messages.Add(("Error adding create computer delegation. Error message is: " + $_))
-            $Return = $false
-        }
-        # Try to delegate delete computer
-        Try {
-            Add-DSACLDeleteChild -TargetDN $this.ouDN -DelegateDN $this.identityDN -ObjectTypeName Computer -AccessType Allow -ErrorAction Stop
-            # Success
-        } Catch {
-            # Failure
-            $this.Messages.Add(("Error adding delete computer delegation. Error message is: " + $_))
-            $Return = $false
-        }
-        # Return
-        return $Return
-    }
-    # CreateDeleteOUs method
-    Hidden [Boolean] CreateDeleteOUs() {
+    # METHODS: CreateDeleteOUs method
+    Hidden [Boolean] CreateOUs() {
         # Control variable
         [Boolean] $Return = $true
         # Try to delegate create OU
@@ -509,6 +514,77 @@ Class ACDOUDelegation {
             $this.Messages.Add(("Error adding create OU delegation. Error message is: " + $_))
             $Return = $false
         }
+        # Return
+        return $Return
+    }
+    # METHODS: DeleteChildUsers method
+    Hidden [Boolean] DeleteChildComputers() {
+        # Control variable
+        [Boolean] $Return = $true
+        # Try to delegate
+        Try {
+            Add-DSACLDeleteChild -TargetDN $this.ouDN -DelegateDN $this.identityDN -ObjectTypeName Computer -AccessType Allow -ErrorAction Stop
+            # Success
+        } Catch {
+            # Failure
+            $this.Messages.Add(("Error adding delete child computers delegation. Error message is: " + $_))
+            $Return = $false
+        }
+        # Return
+        return $Return
+    }
+    # METHODS: DeleteChildContacts method
+    Hidden [Boolean] DeleteChildContacts() {
+        # Control variable
+        [Boolean] $Return = $true
+        # Try to delegate
+        Try {
+            Add-DSACLDeleteChild -TargetDN $this.ouDN -DelegateDN $this.identityDN -ObjectTypeName Contact -AccessType Allow -ErrorAction Stop
+            # Success
+        } Catch {
+            # Failure
+            $this.Messages.Add(("Error adding delete child contacts delegation. Error message is: " + $_))
+            $Return = $false
+        }
+        # Return
+        return $Return
+    }
+    # METHODS: DeleteChildGroups method
+    Hidden [Boolean] DeleteChildGroups() {
+        # Control variable
+        [Boolean] $Return = $true
+        # Try to delegate
+        Try {
+            Add-DSACLDeleteChild -TargetDN $this.ouDN -DelegateDN $this.identityDN -ObjectTypeName Group -AccessType Allow -ErrorAction Stop
+            # Success
+        } Catch {
+            # Failure
+            $this.Messages.Add(("Error adding delete child groups delegation. Error message is: " + $_))
+            $Return = $false
+        }
+        # Return
+        return $Return
+    }
+    # METHODS: DeleteChildUsers method
+    Hidden [Boolean] DeleteChildUsers() {
+        # Control variable
+        [Boolean] $Return = $true
+        # Try to delegate
+        Try {
+            Add-DSACLDeleteChild -TargetDN $this.ouDN -DelegateDN $this.identityDN -ObjectTypeName User -AccessType Allow -ErrorAction Stop
+            # Success
+        } Catch {
+            # Failure
+            $this.Messages.Add(("Error adding delete child users delegation. Error message is: " + $_))
+            $Return = $false
+        }
+        # Return
+        return $Return
+    }
+    # METHODS: CreateDeleteOUs method
+    Hidden [Boolean] DeleteOUs() {
+        # Control variable
+        [Boolean] $Return = $true
         # Try to delegate delete  OU
         Try {
             Add-DSACLDeleteChild -TargetDN $this.ouDN -DelegateDN $this.identityDN -ObjectTypeGuid ($this.guidMap['OrganizationalUnit']) -AccessType Allow -ErrorAction Stop
@@ -521,32 +597,7 @@ Class ACDOUDelegation {
         # Return
         return $Return
     }
-    # CreateDeleteUsers method
-    Hidden [Boolean] CreateDeleteUsers() {
-        # Control variable
-        [Boolean] $Return = $true
-        # Try to delegate create user
-        Try {
-            Add-DSACLCreateChild -TargetDN $this.ouDN -DelegateDN $this.identityDN -ObjectTypeName User -AccessType Allow -ErrorAction Stop
-            # Success
-        } Catch {
-            # Failure
-            $this.Messages.Add(("Error adding create user delegation. Error message is: " + $_))
-            $Return = $false
-        }
-        # Try to delegate delete user
-        Try {
-            Add-DSACLDeleteChild -TargetDN $this.ouDN -DelegateDN $this.identityDN -ObjectTypeName User -AccessType Allow -ErrorAction Stop
-            # Success
-        } Catch {
-            $this.Messages.Add(("Error adding delete user delegation. Error message is: " + $_))
-            # Failure
-            $Return = $false
-        }
-        # Return
-        return $Return
-    }
-    # DomainJoinComputer method
+    # METHODS: DomainJoinComputer method
     Hidden [Boolean] DomainJoinComputer() {
         # Control variable
         [Boolean] $Return = $true
@@ -562,16 +613,7 @@ Class ACDOUDelegation {
         # Return
         return $Return
     }
-    # DomainLeaveComputer method
-    Hidden [Boolean] DomainLeaveComputer() {
-        # Control variable
-        [Boolean] $Return = $false
-        # Create computer objects, Write Name, Write name
-        $this.Messages.Add("The DomainLeaveComputer permission method is not yet implemented.")
-        # Return
-        return $Return
-    }
-    # EnableDisableUsers method
+    # METHODS: EnableDisableComputers method
     Hidden [Boolean] EnableDisableComputers() {
         # Control variable
         [Boolean] $Return = $true
@@ -588,7 +630,7 @@ Class ACDOUDelegation {
         # Return
         return $Return
     }
-    # EnableDisableUsers method
+    # METHODS: EnableDisableUsers method
     Hidden [Boolean] EnableDisableUsers() {
         # Control variable
         [Boolean] $Return = $true
@@ -605,7 +647,7 @@ Class ACDOUDelegation {
         # Return
         return $Return
     }
-    # FullControlComputers method
+    # METHODS: FullControlComputers method
     Hidden [Boolean] FullControlComputers() {
         # Control variable
         [Boolean] $Return = $true
@@ -621,7 +663,7 @@ Class ACDOUDelegation {
         # Return
         return $Return
     }
-    # FullControlContacts method
+    # METHODS: FullControlContacts method
     Hidden [Boolean] FullControlContacts() {
         # Control variable
         [Boolean] $Return = $true
@@ -637,7 +679,7 @@ Class ACDOUDelegation {
         # Return
         return $Return
     }
-    # FullControlGroup method
+    # METHODS: FullControlGroup method
     Hidden [Boolean] FullControlGroups() {
         # Control variable
         [Boolean] $Return = $true
@@ -653,7 +695,7 @@ Class ACDOUDelegation {
         # Return
         return $Return
     }
-    # FullControlUsers method
+    # METHODS: FullControlUsers method
     Hidden [Boolean] FullControlUsers() {
         # Control variable
         [Boolean] $Return = $true
@@ -669,7 +711,23 @@ Class ACDOUDelegation {
         # Return
         return $Return
     }
-    # LinkGPO method
+    # METHODS: FullControlUsers method
+    Hidden [Boolean] FullControlOUs() {
+        # Control variable
+        [Boolean] $Return = $true
+        # Try to delegate
+        Try {
+            Add-DSACLFullControl -TargetDN $this.ouDN -DelegateDN $this.identityDN -ObjectTypeGuid ($this.guidMap['OrganizationalUnit']) -AccessType Allow -ErrorAction Stop
+            # Success
+        } Catch {
+            # Failure
+            $this.Messages.Add(("Error adding full control organizational units delegation. Error message is: " + $_))
+            $Return = $false
+        }
+        # Return
+        return $Return
+    }
+    # METHODS: LinkGPO method
     Hidden [Boolean] LinkGPO() {
         # Control variable
         [Boolean] $Return = $true
@@ -685,7 +743,7 @@ Class ACDOUDelegation {
         # Return
         return $Return
     }
-    # ModifyGroupMembership method
+    # METHODS: ModifyGroupMembership method
     Hidden [Boolean] ModifyGroupMembership() {
         # Control variable
         [Boolean] $Return = $true
@@ -701,67 +759,7 @@ Class ACDOUDelegation {
         # Return
         return $Return
     }
-    # MoveComputerObject method
-    Hidden [Boolean] MoveComputerObject() {
-        # Control variable
-        [Boolean] $Return = $false
-        $this.Messages.Add("The MoveComputerObject permission method is not yet implemented. This probably needs to be a method in a different class.")
-        # Return
-        return $Return
-    }
-    # MoveDisabledUser method
-    Hidden [Boolean] MoveUsersToDisabledUsersOU() {
-        # Control variable
-        [Boolean] $Return = $true
-        # Determine if we have been provided a disabled users OU
-        If ([String]::IsNullOrEmpty($this.duOuDN) -eq $false) {
-            # We have been provided a disabled users OU; attempt to add delegation.
-            Try {
-                # Per DSACL documentation, the identity responsible for moving user objects needs create child rights in the destination OU. In this case, "target" means the OU where the object will be moved *TO*
-                Add-DSACLCreateChild -TargetDN $this.duOuDN -DelegateDN $this.identityDN -ObjectTypeName User -AccessType Allow -ErrorAction Stop
-                # Per DSACL documentation, the identity responsible for moving user objects needs this rename and delete objects in the target OU. In this case, "target" means the OU where the object will be moved *FROM*
-                Add-DSACLMoveObjectFrom -ObjectTypeName User -TargetDN $this.ouDN -DelegateDN $this.identityDN -ErrorAction Stop
-                # Success
-            } Catch {
-                # Failure
-                $this.Messages.Add(("Error adding move user to diabled users OU delegation. Error message is: " + $_))
-                $Return = $false
-            }
-        } Else {
-            # We have not been provided a disabled users OU; skipping
-            $this.Messages.Add(("No disabled users OU provided; skipping. Error message is: " + $_))
-            $Return = $false
-        }
-        # Return
-        return $Return
-    }
-    # MoveDisabledComputer method
-    Hidden [Boolean] MoveComputersToDisabledComputersOU() {
-        # Control variable
-        [Boolean] $Return = $true
-        # Determine if we have been provided a disabled computers OU
-        If ([String]::IsNullOrEmpty($this.dcOuDN) -eq $false) {
-            # We have been provided a disabled users OU; try to add delegation.
-            Try {
-                # Per DSACL documentation, the identity responsible for moving computer objects needs create child rights in the destination OU. In this case, "target" means the OU where the object will be moved *TO*
-                Add-DSACLCreateChild -TargetDN $this.dcOuDN -DelegateDN $this.identityDN -ObjectTypeName Computer -AccessType Allow -ErrorAction Stop
-                # Per DSACL documentation, the identity responsible for moving computer objects needs this rename and delete objects in the target OU. In this case, "target" means the OU where the object will be moved *FROM*
-                Add-DSACLMoveObjectFrom -ObjectTypeName Computer -TargetDN $this.ouDN -DelegateDN $this.identityDN -ErrorAction Stop
-                # Success
-            } Catch {
-                # Failure
-                $this.Messages.Add(("Error adding move computer to diabled users OU delegation. Error message is: " + $_))
-                $Return = $false
-            }
-        } Else {
-            # We have not been provided a disabled users OU; skipping
-            $this.Messages.Add("No disabled users OU provided; skipping")
-            $Return = $false
-        }
-        # Return
-        return $Return
-    }
-    # ReadBitLockerRecovery method
+    # METHODS: ReadBitLockerRecovery method
     Hidden [Boolean] ReadBitLockerRecovery() {
         # Control variable
         [Boolean] $Return = $true
@@ -787,7 +785,7 @@ Class ACDOUDelegation {
         # Return
         return $Return
     }
-    # Reset password method
+    # METHODS: Reset password method
     Hidden [Boolean] ResetUserPasswords() {
         # Control variable
         [Boolean] $Return = $true
@@ -805,7 +803,7 @@ Class ACDOUDelegation {
     }
 }
 
-Class ACDGPOPermissions {
+Class GPOPermissions {
     # PROPERTIES: Booleans, Strings
     [Boolean] $Success     = $false
     [Boolean] $Validates   = $false
@@ -822,9 +820,9 @@ Class ACDGPOPermissions {
     }
     # PROPERTIES: Lists
     [System.Collections.Generic.List[String]] $Messages = @()
-    # METHODS
-    # Constructor method
-    ACDGPOPermissions($gpoName,$group,$permission) {
+    # METHODS: Constructor method
+    GPOPermissions($gpoName,$group,$permission) {
+        # Set properties
         $this.gpoName     = $gpoName
         $this.Group       = $group
         $this.Permission  = $permission
@@ -840,7 +838,7 @@ Class ACDGPOPermissions {
             $this.Validates = $false
         }
     }
-    # ValidateGPOPermission method
+    # METHODS: ValidateGPOPermission method
     Hidden [Boolean] ValidateGPOPermission() {
         # Control variable
         [Boolean] $Return = $true
@@ -892,7 +890,7 @@ Class ACDGPOPermissions {
         # Return
         return $Return
     }
-    # GpoEdit method
+    # METHODS: GpoEdit method
     Hidden [Boolean] SetGPOPermission() {
         # Control variable
         [Boolean] $Return = $true
@@ -910,7 +908,7 @@ Class ACDGPOPermissions {
     }
 }
 
-Class ACDDFSNRootPermissions {
+Class DFSNRootPermissions {
     # PROPERTIES: Booleans, Strings
     [Boolean] $Success     = $false
     [Boolean] $Validates   = $false
@@ -919,9 +917,8 @@ Class ACDDFSNRootPermissions {
     [String]  $Identity    = $null
     # PROPERTIES: Lists
     [System.Collections.Generic.List[String]] $Messages = @()
-    # METHODS
-    # Constructor method
-    ACDDFSNRootPermissions($dfsnRoot,$identity) {
+    # METHODS: Constructor method
+    DFSNRootPermissions($dfsnRoot,$identity) {
         # Set properties
         $this.dfsnRoot = $dfsnRoot
         $this.Identity = $identity
@@ -938,7 +935,7 @@ Class ACDDFSNRootPermissions {
             $this.Validates = $false
         }
     }
-    # ValidateDFSNPermission method
+    # METHODS: ValidateDFSNPermission method
     Hidden [Boolean] ValidateDFSNRootPermission() {
         # Control variable
         [Boolean] $Return = $true
@@ -977,7 +974,7 @@ Class ACDDFSNRootPermissions {
         # Return
         return $Return
     }
-    # SetDFSNPermission
+    # METHODS: SetDFSNPermission
     Hidden [Boolean] SetDFSNRootPermission() {
         # Control variable
         [Boolean] $Return = $true
@@ -995,7 +992,7 @@ Class ACDDFSNRootPermissions {
     }   
 }
 
-Class ACDDFSNFolderPermissions {
+Class DFSNFolderPermissions {
     # PROPERTIES: Booleans, Strings
     [Boolean] $Success     = $false
     [Boolean] $Validates   = $false
@@ -1004,9 +1001,8 @@ Class ACDDFSNFolderPermissions {
     [String]  $Identity    = $null
     # PROPERTIES: Lists
     [System.Collections.Generic.List[String]] $Messages = @()
-    # METHODS
-    # Constructor method
-    ACDDFSNFolderPermissions($dfsnFolder,$identity) {
+    # METHODS: Constructor method
+    DFSNFolderPermissions($dfsnFolder,$identity) {
         # Set properties
         $this.dfsnFolder  = $dfsnFolder
         $this.Identity    = $identity
@@ -1023,7 +1019,7 @@ Class ACDDFSNFolderPermissions {
             $this.Validates = $false
         }
     }
-    # ValidateDFSNPermission method
+    # METHODS: ValidateDFSNPermission method
     Hidden [Boolean] ValidateDFSNFolderPermission() {
         # Control variable
         [Boolean] $Return = $true
@@ -1062,7 +1058,7 @@ Class ACDDFSNFolderPermissions {
         # Return
         return $Return
     }
-    # SetDFSNPermission
+    # METHODS: SetDFSNPermission
     Hidden [Boolean] SetDFSNFolderPermission() {
         # Control variable
         $Return = $true
@@ -1079,7 +1075,7 @@ Class ACDDFSNFolderPermissions {
     }   
 }
 
-Class ACDDFSRPermissions {
+Class DFSRPermissions {
     # PROPERTIES: Booleans, Strings
     [Boolean] $Success     = $false
     [Boolean] $Validates   = $false
@@ -1088,9 +1084,8 @@ Class ACDDFSRPermissions {
     [String]  $Identity    = $null
     # PROPERTIES: Lists
     [System.Collections.Generic.List[String]] $Messages = @()
-    # METHODS
-    # Constructor method
-    ACDDFSRPermissions($dfsrGroup,$identity) {
+    # METHODS: Constructor method
+    DFSRPermissions($dfsrGroup,$identity) {
         $this.dfsrGroup   = $dfsrGroup
         $this.identity    = $identity
         $this.Description = ("Permission for " + $this.Identity + " to " + $this.dfsrGroup)
@@ -1106,7 +1101,7 @@ Class ACDDFSRPermissions {
             $this.Validates = $false
         }
     }
-    # ValidateDFSRPermission method
+    # METHODS: ValidateDFSRPermission method
     Hidden [Boolean] ValidateDFSRPermission() {
         # Control variable
         [Boolean] $Return = $true
@@ -1144,7 +1139,7 @@ Class ACDDFSRPermissions {
         }
         return $Return
     }
-    # SetDFSRPermission method
+    # METHODS: SetDFSRPermission method
     Hidden [Boolean] SetDFSRPermission() {
         # Control variable
         [Boolean] $Return = $true
@@ -1163,4 +1158,4 @@ Class ACDDFSRPermissions {
 }
 
 # MAIN
-[ACDMain]::new($Configuration,$OutDir,$Wipe) | Out-Null
+[Main]::new($Configuration,$OutDir) | Out-Null
