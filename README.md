@@ -180,7 +180,7 @@ Messages as written to the Windows Event Viewer [_One Zero One_](https://github.
 This script is licensed under the [GNU General Public License (GPL) version 2.0](LICENSE).
 
 ## Notes
-Run this script as a user with rights to create AD delegations (likely a Domain Admin) from within a writable directory.
+Run this script as a user with rights to create AD delegations (e.g., a Domain Admin) from within a writable directory.
 
 ## Relevant Links
 * [DSACL docs](https://github.com/SimonWahlin/DSACL/blob/master/docs)

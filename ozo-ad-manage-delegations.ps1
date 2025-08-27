@@ -36,7 +36,7 @@
     .LINK
     https://learn.microsoft.com/en-us/powershell/module/dfsr/grant-dfsrdelegation?view=windowsserver2022-ps
     .NOTES
-    Run this script as a user with rights to create AD delegations (likely a Domain Admin) from within a writable directory.
+    Run this script as a user with rights to create AD delegations (e.g., a Domain Admin) from within a writable directory.
 #>
 
 # PARAMETERS
