@@ -72,8 +72,8 @@ The script can grant access to DFSN folders to a user or group.
 ### DFSR Permissions
 The script can create a delegation to a DFSR replication group for a user or group.
 
-## Configuration Definition
-This script reads its configuration from a JSON [configuration](#parameters) file with the following schema. See [ozo-ad-manage-delegations-EXAMPLE.json](https://github.com/onezeroone-dev/ozo-ad-manage-delegations/blob/main/ozo-ad-manage-delegations-EXAMPLE.json) for an example.
+## JSON Configuration Definition
+This script leverages the [One Zero One Unified JSON Schema](https://onezeroone.dev/ozo-unified-json-schema/). The elements of the schema used by this script are as follows. Please also see [ozo-ad-manage-delegations-EXAMPLE.json](https://github.com/onezeroone-dev/ozo-ad-manage-delegations/blob/main/ozo-ad-manage-delegations-EXAMPLE.json).
 
 ```json
 {
