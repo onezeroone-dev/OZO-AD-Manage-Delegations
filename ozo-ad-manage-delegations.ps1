@@ -1,11 +1,11 @@
 #Requires -Modules ActiveDirectory,DFSN,DFSR,DSACL,GroupPolicy,ImportExcel,OZO,OZOAD,OZOFiles,OZOLogger
 
 <#PSScriptInfo
-    .VERSION 1.0.0
+    .VERSION 0.0.1
     .GUID 069ad55f-163a-4900-b35b-2a1100d64e81
     .AUTHOR Andy Lievertz <alievertz@onezeroone.dev>
     .COMPANYNAME One Zero One
-    .COPYRIGHT (c) 2025
+    .COPYRIGHT This script is released under the terms of the GNU General Public License ("GPL") version 2.0.
     .TAGS 
     .LICENSEURI https://github.com/onezeroone-dev/OZO-AD-Manage-Delegations/blob/main/LICENSE
     .PROJECTURI https://github.com/onezeroone-dev/OZO-AD-Manage-Delegations
@@ -24,7 +24,7 @@
     .PARAMETER Configuration
     Path to the JSON configuration file. Defaults to "ad-create-delegations.json" in the same directory as the script.
     .PARAMETER OutDir
-    Path for the Excel report. Defaults to the current directory.
+    Path for the Excel results report. Defaults to the current directory.
     .LINK
     https://github.com/onezeroone-dev/OZO-AD-Manage-Delegations/blob/main/README.md
     .LINK
@@ -42,20 +42,18 @@
 # PARAMETERS
 [CmdletBinding(SupportsShouldProcess = $true)] Param (
     [Parameter(Mandatory=$false,HelpMessage="Path to the JSON configuration file")][String]$Configuration = (Join-Path -Path $PSScriptRoot -ChildPath "ad-create-delegations.json"),
-    [Parameter(Mandatory=$false,HelpMessage="Path for the Excel report")][String]$OutDir = (Get-Location)
+    [Parameter(Mandatory=$false,HelpMessage="Path for the Excel results report")][String]$OutDir = (Get-Location)
 )
 
 # CLASSES
 Class Main {
-    # PROPERTIES: Booleans, Hashtables, Strings
-    [Boolean]   $Validates = $true
-    [String]    $excelPath = $null
-    [String]    $jsonPath  = $null
-    [String]    $outDir    = $null
+    # PROPERTIES: Strings
+    [String] $excelPath = $null
+    [String] $jsonPath  = $null
     # PROPERTIES: PSCustomObjects
     [PSCustomObject] $Json     = $null
     [PSCustomObject] $ozoLogger = $null
-    # PROPERTIES: Lists
+    # PROPERTIES: PSCUstomObject lists
     [System.Collections.Generic.List[PSCustomObject]] $ouDelegations         = @()
     [System.Collections.Generic.List[PSCustomObject]] $gpoPermissions        = @()
     [System.Collections.Generic.List[PSCustomObject]] $dfsnRootPermissions   = @()
@@ -65,21 +63,18 @@ Class Main {
     Main($Configuration,$OutDir) {
         # Set properties
         $this.jsonPath = $Configuration
-        $this.outDir   = $OutDir
         # Create a ozoLogger object
         $this.ozoLogger = (New-OZOLogger)
         # Declare ourselves to the world
         $this.ozoLogger.Write("Starting process.","Information")
         # And the results of ValidateConfiguration and ValidateEnvironment to set validates
-        If (($this.ValidateConfiguration() -And $this.ValidateEnvironment()) -eq $true) {
+        If (($this.ValidateConfiguration() -And $this.ValidateEnvironment($OutDir)) -eq $true) {
             # Configuration and environment validate; call the permissions methods
             $this.CreateOUDelegations()
             $this.SetGPOPermissions()
             $this.GrantDFSNRootPermissions()
             $this.GrantDFSNFolderPermissions()
             $this.GrantDFSRPermissions()
-        } Else {
-            $this.Validates = $false
         }
         # Report
         $this.Report()
@@ -89,20 +84,18 @@ Class Main {
     Hidden [Boolean] ValidateConfiguration() {
         # control variable
         [Boolean]$Return = $true
-        # Check that the jsonPath is valid
-        Try {
-            Test-Path -Path $this.jsonPath -ErrorAction Stop
-            # Success; attempt to read the JSON
+        # Determine if the JSON path is valid
+        If ([Boolean](Test-Path -Path $this.jsonPath -ErrorAction SilentlyContinue) -eq $true) {
+            # JSON path is valid; try to read the JSON
             Try {
                 $this.Json = Get-Content $this.jsonPath -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
-                # Success (able to read JSON)
-                $this.ozoLogger.Write("Configuration validates.","Information")
+                # Success
             } Catch {
-                # Failure (unable to read JSON)
+                # Failure
                 $this.ozoLogger.Write(("Invalid JSON in " + $this.jsonPath + "."),"Error")
                 $Return = $false
             }
-        } Catch {
+        } Else {
             # JSON path is not valid
             $this.ozoLogger.Write(("Could not read configuration file " + $this.jsonPath + "."),"Error")
             $Return = $false
@@ -111,25 +104,26 @@ Class Main {
         return $Return
     }
     # METHODS: Environment validation method
-    Hidden [Boolean] ValidateEnvironment() {
+    Hidden [Boolean] ValidateEnvironment($OutDir) {
         # Control variable
         [Boolean] $Return = $true
         # Determine if outDir is writable
-        If ((Test-OZOPath -Path $this.outDir -Writable) -eq $true) {
-            # outDir is writable
-            $this.excelPath = (Join-Path -Path $this.outDir -ChildPath ((Get-OZO8601Date -Time) + "-ad-create-delegations-report.xlsx"))
-            $this.ozoLogger.Write(("Using " + $this.excelPath + " for the Excel report"),"Information")
+        If ((Test-OZOPath -Path $OutDir -Writable) -eq $true) {
+            # OutDir is writable
+            $this.excelPath = (Join-Path -Path $OutDir -ChildPath ((Get-OZO8601Date -Time) + "-ad-create-delegations-report.xlsx"))
+            $this.ozoLogger.Write(("Using " + $this.excelPath + " for the Excel report."),"Information")
         } Else {
-            # outDir is not writable; determine if current location is writable
+            # OutDir is not writable
             $this.ozoLogger.Write("Provided output directory is not writable.","Warning")
-            If ((Test-SHPathWritable -Path (Get-Location)) -eq $true) {
-                # current directory is writable
-                $this.excelPath = (Join-Path -Path (Get-Location) -ChildPath ((Get-SH8601Date -Time) + "-ad-create-delegations-report.xlsx"))
-                $this.ozoLogger.Write(("Using " + $this.excelPath + " for the Excel report"),"Information")
+            # Determine if current location is writable
+            If ((Test-OZOPath -Path (Get-Location) -Writable) -eq $true) {
+                # Current location is writable
+                $this.excelPath = (Join-Path -Path (Get-Location) -ChildPath ((Get-OZO8601Date -Time) + "-ad-create-delegations-report.xlsx"))
+                $this.ozoLogger.Write(("Using " + $this.excelPath + " for the Excel results report."),"Information")
             } Else {
-                # current directory is not writable
+                # Current location is not writable
                 $this.ozoLogger.Write("Current directory is not writable; cannot proceed.","Error")
-                $return = $false
+                $Return = $false
             }
         }
         # Return
@@ -280,12 +274,11 @@ Class Main {
                 $this.dfsnFolderPermissions | Select-Object -Property @{Name="DFSN Folder Permission";Expression={$_.Description}},@{Name="Success";Expression={$_.Success}} | Format-Table | Out-Host
                 $this.dfsrPermissions | Select-Object -Property @{Name="DFSR Permission";Expression={$_.Description}},@{Name="Success";Expression={$_.Success}} | Format-Table | Out-Host
                 # Determine if Excel was created
-                Try {
-                    Test-Path -Path $this.excelPath -ErrorAction Stop
-                    # Success
+                If ([Boolean](Test-Path -Path $this.excelPath -ErrorAction SilentlyContinue) -eq $true) {
+                    # Excel was created
                     $this.ozoLogger.Write(("For additional information, please see " + $this.excelPath + "."),"Information")
-                } Catch {
-                    $this.ozoLogger.Write("No Excel report generated.","Warning")
+                } Else {
+                    $this.ozoLogger.Write("No Excel results report generated.","Warning")
                 }
             }
         } Else {
@@ -297,17 +290,19 @@ Class Main {
 
 Class OUDelegation {
     # PROPERTIES: Booleans, Hashtables, Strings
-    [Boolean]   $Success     = $false
-    [Boolean]   $Validates   = $false
-    [Hashtable] $erMap       = @{}
-    [Hashtable] $guidMap     = @{}
-    [String]    $dcOuDN      = $null
-    [String]    $duOuDN      = $null
-    [String]    $ouDN        = $null
-    [String]    $Description = $null
-    [String]    $Identity    = $null
-    [String]    $identityDN  = $null
-    [String]    $Permission  = $null
+    [Boolean] $Success   = $false
+    [Boolean] $Validates = $false
+    # PROPERTIES: Hashtables
+    [Hashtable] $erMap   = @{}
+    [Hashtable] $guidMap = @{}
+    # PROPERTIES: Strings
+    [String] $dcOuDN      = $null
+    [String] $duOuDN      = $null
+    [String] $ouDN        = $null
+    [String] $Description = $null
+    [String] $Identity    = $null
+    [String] $identityDN  = $null
+    [String] $Permission  = $null
     # PROPERTIES: PSCustomObjects
     [PSCustomObject] $Acl         = $null
     [PSCustomObject] $Permissions = @{
@@ -335,7 +330,7 @@ Class OUDelegation {
         ResetUserPasswords = "Delegates reset password"
         ReadBitLockerRecovery = "Delegates read to the BitLocker Recovery information"
     }
-    # PROPERTIES: Lists
+    # PROPERTIES: String lists
     [System.Collections.Generic.List[String]] $Messages = @()
     # METHODS: Constructor method
     OUDelegation($ouDN,$Identity,$Permission) {
@@ -804,13 +799,14 @@ Class OUDelegation {
 }
 
 Class GPOPermissions {
-    # PROPERTIES: Booleans, Strings
-    [Boolean] $Success     = $false
-    [Boolean] $Validates   = $false
-    [String]  $Description = $null
-    [String]  $gpoName     = $null
-    [String]  $Group       = $null
-    [String]  $Permission  = $null
+    # PROPERTIES: Booleans
+    [Boolean] $Success   = $false
+    [Boolean] $Validates = $false
+    # PROPERTIES: Strings
+    [String] $Description = $null
+    [String] $gpoName     = $null
+    [String] $Group       = $null
+    [String] $Permission  = $null
     # PROPERTIES: PSCustomObjects
     [PSCustomObject] $Permissions = [PSCustomObject]@{
         GpoRead  = "Allows reading a named GPO"
@@ -818,7 +814,7 @@ Class GPOPermissions {
         GpoEdit  = "Allows editing a named GPO"
         GpoEditDeleteModifySecurity = "placeholder"
     }
-    # PROPERTIES: Lists
+    # PROPERTIES: String lists
     [System.Collections.Generic.List[String]] $Messages = @()
     # METHODS: Constructor method
     GPOPermissions($gpoName,$group,$permission) {
@@ -909,13 +905,14 @@ Class GPOPermissions {
 }
 
 Class DFSNRootPermissions {
-    # PROPERTIES: Booleans, Strings
-    [Boolean] $Success     = $false
-    [Boolean] $Validates   = $false
-    [String]  $Description = $null
-    [String]  $dfsnRoot    = $null
-    [String]  $Identity    = $null
-    # PROPERTIES: Lists
+    # PROPERTIES: Booleans
+    [Boolean] $Success   = $false
+    [Boolean] $Validates = $false
+    # PROPERTIES: Strings
+    [String] $Description = $null
+    [String] $dfsnRoot    = $null
+    [String] $Identity    = $null
+    # PROPERTIES: String lists
     [System.Collections.Generic.List[String]] $Messages = @()
     # METHODS: Constructor method
     DFSNRootPermissions($dfsnRoot,$identity) {
@@ -993,13 +990,14 @@ Class DFSNRootPermissions {
 }
 
 Class DFSNFolderPermissions {
-    # PROPERTIES: Booleans, Strings
-    [Boolean] $Success     = $false
-    [Boolean] $Validates   = $false
-    [String]  $Description = $null
-    [String]  $dfsnFolder  = $null
-    [String]  $Identity    = $null
-    # PROPERTIES: Lists
+    # PROPERTIES: Booleans
+    [Boolean] $Success   = $false
+    [Boolean] $Validates = $false
+    # PROPERTIES: Strings
+    [String] $Description = $null
+    [String] $dfsnFolder  = $null
+    [String] $Identity    = $null
+    # PROPERTIES: String lists
     [System.Collections.Generic.List[String]] $Messages = @()
     # METHODS: Constructor method
     DFSNFolderPermissions($dfsnFolder,$identity) {
@@ -1076,13 +1074,14 @@ Class DFSNFolderPermissions {
 }
 
 Class DFSRPermissions {
-    # PROPERTIES: Booleans, Strings
-    [Boolean] $Success     = $false
-    [Boolean] $Validates   = $false
-    [String]  $Description = $null
-    [String]  $dfsrGroup   = $null
-    [String]  $Identity    = $null
-    # PROPERTIES: Lists
+    # PROPERTIES: Booleans
+    [Boolean] $Success   = $false
+    [Boolean] $Validates = $false
+    # PROPERTIES: Strings
+    [String] $Description = $null
+    [String] $dfsrGroup   = $null
+    [String] $Identity    = $null
+    # PROPERTIES: String lists
     [System.Collections.Generic.List[String]] $Messages = @()
     # METHODS: Constructor method
     DFSRPermissions($dfsrGroup,$identity) {
