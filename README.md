@@ -20,14 +20,14 @@ Install-Script ozo-ad-manage-delegations
 ```
 ozo-ad-manage-delegations
     -Configuration <String>
-    -OutDir        <String>
+    [-OutDir <String>]
 ```
 
 ## Parameters
 |Parameter|Description|
 |---------|-----------|
 |`Configuration`|Path to the JSON configuration file. Defaults to `ozo-ad-manage-delegations.json` in the same directory as the script. Please see _Configuration Definition_ (below) for more information.|
-|`OutDir`|Directory for the Excel report. Defaults to the current directory.|
+|`OutDir`|Directory for the Excel tesults report. Defaults to the current directory.|
 
 ## Capabilities
 ### OU Delegations
@@ -75,99 +75,6 @@ The script can create a delegation to a DFSR replication group for a user or gro
 ## JSON Configuration Definition
 This script leverages the [One Zero One Unified AD JSON Schema](https://onezeroone.dev/ozo-unified-ad-json-schema/). The elements of the schema used by this script are as follows. Please also see [ozo-ad-manage-delegations-EXAMPLE.json](https://github.com/onezeroone-dev/ozo-ad-manage-delegations/blob/main/ozo-ad-manage-delegations-EXAMPLE.json).
 
-```json
-{
-    "ADOUDelegations":[
-        {
-            "Description":"",
-            "Identities":[""],
-            "Permissions":[""],
-            "OUs":[
-                ""
-            ]
-        }
-    ],
-    "ADGPOPermissions":[
-        {
-            "Description":"",
-            "GPONames":[""],
-            "GroupNames":[""],
-            "Permissions":[""]
-        }
-    ],
-    "ADADDFSNRootPermissions":[
-        {
-            "Description":"",
-            "DFSNRoots":[""],
-            "Identities":[""]
-        }
-    ],
-    "ADDFSNFolderPermissions":[
-        {
-            "Description":"",
-            "DFSNFolders":[""],
-            "Identities":[""]
-        }
-    ],
-    "ADDFSRPermissions":[
-        {
-            "Description":"",
-            "DFSRGroups":[""],
-            "Identities":[""]
-        }
-    ]
-}
-
-```
-
-### Main Configuration
-| Key | Value |Required|
-|-----|-------|--------|
-|`ADOUDelegations`|A list of delegations to create. See _ADOUDelegations Configuration_, below.|FALSE|
-|`ADGPOPermissions`|A list of GPO permissions to apply. See _ADGPOPermissions Configuration_, below.|FALSE|
-|`ADDFSNRootPermissions`|A list of DFSN roots to delegate. See _ADDFSNRootPermissions Configuration_, below.|FALSE|
-|`ADDFSNFolderPermissions`|A list of DFSN folders to delegate. See _ADDFSNFolderPermissions Configuration_, below.|FALSE|
-|`ADDFSRPermissions`|A list of DFSR permissions to apply. See _ADDFSRPermissions Configuration_, below.|FALSE|
-
-### ADOUDelegations Configuration
-|Key|Value|Required|
-|---|-----|--------|
-|`Description`|A brief description of the delegation.|TRUE|
-|`Identities`|A list of users and groups to whom the delegation will be applied.|TRUE|
-|`Permissions`|The permissions that will be applied for the user to the OU. See _Permissions_ (below) for valid values.|TRUE|
-|`OUs`|A list of OU distinguished names where the delegation will be applied.|TRUE|
-
-### ADGPOPermissions Configuration
-The script supports applying GPO permissions only to _groups_!
-
-|Key|Value|Required|
-|---|-----|--------|
-|`Description`|A brief description of the GPO permission.|TRUE|
-|`GPONames`|A list of GPO names where the permissions will be applied.|TRUE|
-|`GroupNames`|A list of AD groups to whom the permissions will be applied.|TRUE|
-|`Permissions`|A list of the permissions to apply. Valid permissions are `GpoRead`, `GpoApply`, `GpoEdit`, and `GpoEditDeleteModifySecurity`.|TRUE|
-
-### ADDFSNRootPermissions Configuration
-|Key|Value|Required|
-|---|-----|--------|
-|`Description`|A brief description of the DFSN permission.|TRUE|
-|`DFSNRoots`|A list of the folders where the permissions will be applied.|TRUE|
-|`Identities`|A list of AD users and group to whom the permissions will be applied.|TRUE|
-
-### ADDFSNFolderPermissions Configuration
-|Key|Value|Required|
-|---|-----|--------|
-|`Description`|A brief description of the DFSN permission.|TRUE|
-|`DFSNFolders`|A list of the folders where the permissions will be applied.|TRUE|
-|`Identities`|A list of AD users and group to whom the permissions will be applied.|TRUE|
-
-### ADDFSRPermissions Configuration
-|Key|Value|Required|
-|---|-----|--------|
-|`Description`|A brief description of the DFSR permission.|TRUE|
-|`DFSRGroups`|A list of the DFS replication groups where the permissions will be applied.|TRUE|
-|`Identities`|A list of AD users and group to whom the permissions will be applied.|TRUE|
-
 ## Examples
 ```powershell
 ozo-ad-manage-delegations -Configuration (Join-Path -Path $Env:USERPROFILE -ChildPath "Downloads\ozo-ad-manage-delegations.json")
@@ -180,7 +87,7 @@ Messages as written to the Windows Event Viewer [_One Zero One_](https://github.
 This script is licensed under the [GNU General Public License (GPL) version 2.0](LICENSE).
 
 ## Notes
-Run this script as a user with rights to create AD delegations (e.g., a Domain Admin) from within a writable directory.
+Run this script as a user with rights to create AD delegations (e.g., a Domain Admin).
 
 ## Relevant Links
 * [DSACL docs](https://github.com/SimonWahlin/DSACL/blob/master/docs)
