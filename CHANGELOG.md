@@ -1,5 +1,4 @@
-# OZO PowerShell Script Template
-
+# OZO AD Manage Delegations Change Log
 |Date|Version|Comment|
 |----|-------|-------|
-|YYYY-MM-DD|1.0.0|Initial release.|
+|2026-Sep-27|0.0.1|Testing release.|
