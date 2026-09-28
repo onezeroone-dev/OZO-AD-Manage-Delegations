@@ -107,7 +107,7 @@ Class Main {
         # Determine if outDir is writable
         If ((Test-OZOPath -Path $OutDir -Writable) -eq $true) {
             # OutDir is writable
-            $this.excelPath = (Join-Path -Path $OutDir -ChildPath ((Get-OZO8601Date -Time) + "-ad-create-delegations-report.xlsx"))
+            $this.excelPath = (Join-Path -Path $OutDir -ChildPath ((Get-OZO8601Date -Time) + "-ozo-ad-manage-delegations.xlsx"))
             $this.ozoLogger.Write(("Using " + $this.excelPath + " for the Excel report."),"Information")
         } Else {
             # OutDir is not writable
@@ -115,7 +115,7 @@ Class Main {
             # Determine if current location is writable
             If ((Test-OZOPath -Path (Get-Location) -Writable) -eq $true) {
                 # Current location is writable
-                $this.excelPath = (Join-Path -Path (Get-Location) -ChildPath ((Get-OZO8601Date -Time) + "-ad-create-delegations-report.xlsx"))
+                $this.excelPath = (Join-Path -Path (Get-Location) -ChildPath ((Get-OZO8601Date -Time) + "-ozo-ad-manage-delegations.xlsx"))
                 $this.ozoLogger.Write(("Using " + $this.excelPath + " for the Excel results report."),"Information")
             } Else {
                 # Current location is not writable
@@ -132,15 +132,13 @@ Class Main {
         If (($this.Json.ADOUDelegations).Count -gt 0) {
             # There are OU Delegations to process; report
             $this.ozoLogger.Write("Processing Delegations.","Information")
-            # Iterate through the OU Delegations
+            # Iterate over the OU Delegations
             ForEach ($delegation in $this.Json.ADOUDelegations) {
-                # Report
-                $this.ozoLogger.Write(("Processing " + $delegation.Description + "."),"Information")
-                # Iterate through the OUs
+                # Iterate over the OUs
                 ForEach ($ouDN in $delegation.OUs) {
-                    # Iterate through the Identities
+                    # Iterate over the Identities
                     ForEach ($identity in $delegation.Identities) {
-                        # Iterate through the Permissions
+                        # Iterate over the Permissions
                         ForEach ($permission in $delegation.Permissions) {
                             # Create an OUDelegation object for this Delegation's OU + Identity + Permission
                             $this.ouDelegations.Add(([OUDelegation]::new($ouDN,$identity,$permission)))
@@ -159,15 +157,13 @@ Class Main {
         If (($this.Json.ADGPOPermissions).Count -gt 0) {
             # There are GPO Permissiont to process; report
             $this.ozoLogger.Write("Processing GPO Permissions.","Information")
-            # Iterate through the Permissions
+            # Iterate over the Permissions
             ForEach ($gpoPermission in $this.Json.ADGPOPermissions) {
-                # Report
-                $this.ozoLogger.Write(("Processing " + $gpoPermission.Description + "."),"Information")
-                # Iterate through the GPO Names
+                # Iterate over the GPO Names
                 ForEach ($gpoName in $gpoPermission.GPONames) {
-                    # Iterate through the Group Names
+                    # Iterate over the Group Names
                     ForEach ($group in $gpoPermission.GroupNames) {
-                        # Iterate through the Permissions
+                        # Iterate over the Permissions
                         ForEach ($permission in $gpoPermission.Permissions) {
                             # Create a GPOPermissions object for this GPO Name + Group Name + Permission
                             $this.gpoPermissions.Add(([GPOPermissions]::new($gpoName,$group,$permission)))
@@ -186,13 +182,11 @@ Class Main {
         If (($this.Json.ADDFSNRootPermissions).Count -gt 0) {
             # There are DFSN Root Permissions to process; report
             $this.ozoLogger.Write("Processing DFSN root permissions.","Information")
-            # Iterate through the DFSN Root Permissions
+            # Iterate over the DFSN Root Permissions
             ForEach ($dfsnRootPermission in $this.Json.ADDFSNRootPermissions) {
-                # Report
-                $this.ozoLogger.Write(("Processing " + $dfsnRootPermission.Description + "."),"Information")
-                # Iterate through the Roots
+                # Iterate over the Roots
                 ForEach ($dfsnRoot in $dfsnRootPermission.DFSNRoots) {
-                    # Iterate through the Identities
+                    # Iterate over the Identities
                     ForEach ($identity in $dfsnRootPermission.Identities) {
                         # Create a DFSNRootPermissions object for this Root + Identity
                         $this.dfsnRootPermissions.Add(([DFSNRootPermissions]::new($dfsnRoot,$identity)))
@@ -210,13 +204,11 @@ Class Main {
         If (($this.Json.ADDFSNFolderPermissions).Count -gt 0) {
             # There are DFSN Folder Permissions to process
             $this.ozoLogger.Write("Processing DFSN folder permissions.","Information")
-            # Iterate through the DFSN Folder Permissions
+            # Iterate over the DFSN Folder Permissions
             ForEach ($dfsnFolderPermission in $this.Json.ADDFSNFolderPermissions) {
-                # Report
-                $this.ozoLogger.Write(("Processing " + $dfsnFolderPermission.Description + "."),"Information")
-                # Iterate through the Folders
+                # Iterate over the Folders
                 ForEach ($dfsnFolder in $dfsnFolderPermission.DFSNFolders) {
-                    # Iterate through the Identities
+                    # Iterate over the Identities
                     ForEach ($identity in $dfsnFolderPermission.Identities) {
                         # Create a DFSNFolderPermissions object for this Folder + Identity
                         $this.dfsnFolderPermissions.Add(([DFSNFolderPermissions]::new($dfsnFolder,$identity)))
@@ -234,13 +226,11 @@ Class Main {
         If (($this.Json.ADDFSRPermissions).Count -gt 0) {
             # There are DFSR Permissions to process; report
             $this.ozoLogger.Write("Processing DFSR Permissions.","Information")
-            # Iterate through the DFSR Permissions
+            # Iterate over the DFSR Permissions
             ForEach ($dfsrPermission in $this.Json.ADDFSRPermissions) {
-                # Report
-                $this.ozoLogger.Write(("Processing " + $dfsrPermission.Description + "."),"Information")
-                # Iterate through the Groups
+                # Iterate over the Groups
                 ForEach ($dfsrGroup in $dfsrPermission.DFSRGroups) {
-                    # Iterate through the Identities
+                    # Iterate over the Identities
                     ForEach ($identity in $dfsrPermission.Identities) {
                         # Create a DFSRPermissions object for this Group + Identity
                         $this.dfsrPermissions.Add(([DFSRPermissions]::new($dfsrGroup,$identity)))
@@ -397,7 +387,12 @@ Class OUDelegation {
             # Try to get the distinguished name of the Identity
             Try {
                 $this.identityDN = (Get-ADObject -Filter {SamAccountName -eq $this.Identity} -ErrorAction Stop).DistinguishedName
-                # Success
+                # Success; determine if IdentityDN is empty or null
+                If ([String]::IsNullOrEmpty($this.identityDN)) {
+                    # IdentityDN is empty or null
+                    $this.Messages.Add("Failed to retrieve distinguished name for Identity")
+                    $Return = $false
+                }
             } Catch {
                 # Failure
                 $this.Messages.Add("Identity does not exist in AD")
