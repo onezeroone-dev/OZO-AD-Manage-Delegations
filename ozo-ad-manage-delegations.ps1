@@ -1,7 +1,7 @@
 #Requires -Modules ActiveDirectory,DFSN,DFSR,DSACL,GroupPolicy,ImportExcel,OZO,OZOAD,OZOFiles,OZOLogger
 
 <#PSScriptInfo
-    .VERSION 0.0.1
+    .VERSION 0.0.2
     .GUID 069ad55f-163a-4900-b35b-2a1100d64e81
     .AUTHOR Andy Lievertz <alievertz@onezeroone.dev>
     .COMPANYNAME One Zero One
