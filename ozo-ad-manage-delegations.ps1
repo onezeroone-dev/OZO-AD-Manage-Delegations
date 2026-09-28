@@ -49,7 +49,6 @@
 Class Main {
     # PROPERTIES: Strings
     [String] $excelPath = $null
-    [String] $jsonPath  = $null
     # PROPERTIES: PSCustomObjects
     [PSCustomObject] $Json     = $null
     [PSCustomObject] $ozoLogger = $null
@@ -61,14 +60,12 @@ Class Main {
     [System.Collections.Generic.List[PSCustomObject]] $dfsrPermissions       = @()
     # METHODS: Constructor method
     Main($Configuration,$OutDir) {
-        # Set properties
-        $this.jsonPath = $Configuration
-        # Create a ozoLogger object
+        # Create a logger object
         $this.ozoLogger = (New-OZOLogger)
         # Declare ourselves to the world
         $this.ozoLogger.Write("Starting process.","Information")
         # And the results of ValidateConfiguration and ValidateEnvironment to set validates
-        If (($this.ValidateConfiguration() -And $this.ValidateEnvironment($OutDir)) -eq $true) {
+        If (($this.ValidateConfiguration($Configuration) -And $this.ValidateEnvironment($OutDir)) -eq $true) {
             # Configuration and environment validate; call the permissions methods
             $this.CreateOUDelegations()
             $this.SetGPOPermissions()
@@ -81,23 +78,23 @@ Class Main {
         $this.ozoLogger.Write("Process complete.","Information")
     }
     # METHODS: Configuration validation method
-    Hidden [Boolean] ValidateConfiguration() {
+    Hidden [Boolean] ValidateConfiguration($Configuration) {
         # control variable
         [Boolean]$Return = $true
         # Determine if the JSON path is valid
-        If ([Boolean](Test-Path -Path $this.jsonPath -ErrorAction SilentlyContinue) -eq $true) {
+        If ([Boolean](Test-Path -Path $Configuration -ErrorAction SilentlyContinue) -eq $true) {
             # JSON path is valid; try to read the JSON
             Try {
-                $this.Json = Get-Content $this.jsonPath -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+                $this.Json = Get-Content $Configuration -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
                 # Success
             } Catch {
                 # Failure
-                $this.ozoLogger.Write(("Invalid JSON in " + $this.jsonPath + "."),"Error")
+                $this.ozoLogger.Write(("Invalid JSON in " + $Configuration + "."),"Error")
                 $Return = $false
             }
         } Else {
             # JSON path is not valid
-            $this.ozoLogger.Write(("Could not read configuration file " + $this.jsonPath + "."),"Error")
+            $this.ozoLogger.Write(("Could not read configuration file " + $Configuration + "."),"Error")
             $Return = $false
         }
         # Return
